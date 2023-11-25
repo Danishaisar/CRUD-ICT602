@@ -1,5 +1,3 @@
-// ignore_for_file: unnecessary_null_comparison
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,8 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class ProfileDisplayScreen extends StatelessWidget {
   final String name;
   final String phone;
+  final String course; // New field for the course
 
-  ProfileDisplayScreen(this.name, this.phone);
+  ProfileDisplayScreen(this.name, this.phone, this.course);
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +22,7 @@ class ProfileDisplayScreen extends StatelessWidget {
           children: <Widget>[
             Text('Name: $name'),
             Text('Phone Number: $phone'),
+            Text('Course: $course'), // Display the course information
           ],
         ),
       ),
@@ -42,6 +42,8 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   TextEditingController nameController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
+  TextEditingController courseController =
+      TextEditingController(); // New controller for the course
 
   @override
   void initState() {
@@ -52,10 +54,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _retrieveProfileData() {
     if (widget.user != null) {
-      // Get the user's UID
       String userUid = widget.user.uid;
-
-      // Create a reference to the user's document in the Firestore 'users' collection
       var userRef = FirebaseFirestore.instance.collection('users').doc(userUid);
 
       userRef.get().then((DocumentSnapshot snapshot) {
@@ -63,16 +62,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           var userData = snapshot.data() as Map<String, dynamic>;
           String name = userData['name'];
           String phone = userData['phone'];
+          String course = userData['course'] ??
+              ''; // Retrieve course and provide default value if null
           bool isDeleted = userData['isDeleted'] ?? false;
 
           setState(() {
             nameController.text = name;
             phoneController.text = phone;
+            courseController.text = course;
 
             if (isDeleted) {
-              // If the profile is marked as deleted, clear the text fields
               nameController.clear();
               phoneController.clear();
+              courseController.clear();
             }
           });
         }
@@ -83,43 +85,38 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void _updateProfile() async {
     String newName = nameController.text;
     String newPhone = phoneController.text;
+    String newCourse = courseController.text; // Get the course
 
-    // Ensure that the user is signed in
     if (widget.user != null) {
-      // Get the user's UID
       String userUid = widget.user.uid;
-
-      // Create a reference to the user's document in the Firestore 'users' collection
       var userRef = FirebaseFirestore.instance.collection('users').doc(userUid);
 
       try {
         await userRef.set({
           'name': newName,
           'phone': newPhone,
+          'course': newCourse, // Save the course in Firestore
         });
 
-        // Show a success message
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Profile updated successfully'),
         ));
 
-        // Update the displayed profile information
         setState(() {
           nameController.text = newName;
           phoneController.text = newPhone;
+          courseController.text = newCourse;
         });
 
-        // Navigate to the ProfileDisplayScreen and pass the user's name and phone number
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) =>
-                ProfileDisplayScreen(newName, newPhone), // Pass name and phone
+                ProfileDisplayScreen(newName, newPhone, newCourse),
           ),
         );
       } catch (e) {
         print('Error updating profile: $e');
-        // Handle the error
       }
     } else {
       // Handle the case where the user is not signed in
@@ -127,27 +124,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _deleteProfile() async {
-    // Ensure that the user is signed in
     if (widget.user != null) {
       try {
-        // Update the isDeleted flag in the database instead of deleting
         String userUid = widget.user.uid;
         var userRef =
             FirebaseFirestore.instance.collection('users').doc(userUid);
         await userRef.update({
-          'isDeleted': true, // Set the isDeleted flag to true
+          'isDeleted': true,
         });
 
-        // Show a success message
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Profile has been deleted from the app.'),
         ));
 
-        // Navigate back to a previous screen, e.g., the login screen
         Navigator.pop(context);
       } catch (e) {
         print('Error deleting profile: $e');
-        // Handle the error
       }
     } else {
       // Handle the case where the user is not signed in
@@ -175,6 +167,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               decoration: InputDecoration(labelText: 'Phone Number'),
             ),
             SizedBox(height: 20),
+            TextField(
+              controller: courseController,
+              decoration: InputDecoration(
+                  labelText: 'Course'), // New TextField for the course
+            ),
+            SizedBox(height: 20),
             ElevatedButton(
               onPressed: _updateProfile,
               child: Text('Save Profile'),
@@ -183,20 +181,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ElevatedButton(
               onPressed: _deleteProfile,
               style: ElevatedButton.styleFrom(
-                primary: Colors.red, // Set the button color to red
+                primary: Colors.red,
               ),
               child: Text('Delete Profile'),
             ),
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Navigate to the ProfileDisplayScreen and pass the user's name and phone number
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => ProfileDisplayScreen(
                         nameController.text,
-                        phoneController.text), // Pass name and phone
+                        phoneController.text,
+                        courseController.text), // Pass name, phone, and course
                   ),
                 );
               },
