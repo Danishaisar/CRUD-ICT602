@@ -3,7 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'Welcomepage.dart'; // Import the WelcomePage from the new file
+import 'Welcomepage.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,7 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(scopes: ['email']);
 
   void _handleSignIn() async {
     String email = emailController.text;
@@ -42,6 +44,7 @@ class _SignInScreenState extends State<SignInScreen> {
         email: email,
         password: password,
       );
+
       print("Successfully signed in with user: ${userCredential.user}");
 
       // Show a success toast message
@@ -59,13 +62,58 @@ class _SignInScreenState extends State<SignInScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => WelcomePage(
-                userCredential.user!.email ?? 'Guest'), // Pass the email
+              userCredential.user!.email ?? 'Guest',
+            ),
           ),
         );
       }
     } catch (e) {
       print("Error signing in: $e");
       // Handle the sign-in error here.
+    }
+  }
+
+  void _handleGoogleSignIn() async {
+    try {
+      GoogleSignInAccount? googleSignInAccount = await _googleSignIn.signIn();
+      GoogleSignInAuthentication googleSignInAuthentication =
+          await googleSignInAccount!.authentication;
+
+      AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleSignInAuthentication.accessToken,
+        idToken: googleSignInAuthentication.idToken,
+      );
+
+      UserCredential googleUserCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      print(
+          "Successfully signed in with Google user: ${googleUserCredential.user}");
+
+      // Show a success toast message
+      Fluttertoast.showToast(
+        msg: "Google Sign-In successful",
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        backgroundColor: Colors.green,
+        textColor: Colors.green,
+      );
+
+      // Navigate to the Welcome User page after a successful Google Sign-In
+      if (googleUserCredential.user != null) {
+        print("Navigating to WelcomePage");
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WelcomePage(
+              googleUserCredential.user!.email ?? 'Guest',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      print("Error signing in with Google: $e");
+      // Handle the Google sign-in error here.
     }
   }
 
@@ -94,6 +142,11 @@ class _SignInScreenState extends State<SignInScreen> {
             ElevatedButton(
               onPressed: _handleSignIn,
               child: Text('Sign In'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _handleGoogleSignIn,
+              child: Text('Sign In with Google'),
             ),
           ],
         ),
